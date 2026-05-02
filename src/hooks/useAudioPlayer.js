@@ -23,15 +23,17 @@ export function useAudioPlayer() {
     if (!ctxRef.current || ctxRef.current.state === 'closed') {
       ctxRef.current = new (window.AudioContext || window.webkitAudioContext)()
     }
-    if (ctxRef.current.state === 'suspended') {
-      ctxRef.current.resume()
-    }
     return ctxRef.current
   }
 
   // ─── Internal: start generator ───────────────────────────────────────────
-  const startGenerator = useCallback((sound, vol) => {
+  const startGenerator = useCallback(async (sound, vol) => {
     const ctx = getCtx()
+    // AudioContext starts suspended in modern browsers — must await resume()
+    // before starting Web Audio nodes, otherwise they play silently.
+    if (ctx.state === 'suspended') {
+      await ctx.resume()
+    }
     const gen = createGenerator(sound.type, ctx)
     gen.start(vol)
     generatorRef.current = gen
