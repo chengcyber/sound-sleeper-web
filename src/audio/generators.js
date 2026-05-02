@@ -194,297 +194,34 @@ export function createOceanGenerator(ctx) {
   }
 }
 
-// ─── Shhh ─────────────────────────────────────────────────────────────────────
+// ─── Audio File Player (for pre-recorded sounds: shh, vacuum) ───────────────
 /**
- * Realistic rhythmic "Shhh" — mimics a human shushing a baby:
- *
- *  Each ~1.1 s shush cycle has this envelope (asymmetric, NOT a sine wave):
- *    [gap 180ms silent] → [attack 120ms 0→peak] → [sustain 300ms at peak]
- *    → [decay 500ms peak→0.05]  = 1100ms total per shush
- *
- *  Three overlapping noise layers:
- *    1. Sharp "sh" turbulence  3–7 kHz  (the teeth/tongue friction sound)
- *    2. Mouth-air body         1.5–4 kHz (breath column resonance)
- *    3. Soft undertone         700–2 kHz (very light, always-on "room" air)
- *
- *  The formant filter frequency also sweeps up during the attack (mouth opens)
- *  and falls during the decay (mouth closes), giving the "sh" its vocal shape.
- *
- *  Slight timing jitter ±80 ms per cycle keeps it from sounding robotic.
+ * Wraps an HTMLAudioElement to match the same {start, stop, setVolume}
+ * interface used by the Web Audio generators.
+ * The audio loops seamlessly and volume is controlled via .volume.
  */
-export function createShhGenerator(ctx) {
-  let masterGain = null    // overall volume
-  let breathGain = null    // the shush envelope rides here (layers 1 & 2)
-  let formant = null       // bandpass filter — frequency modulated per cycle
-  let sources = []
-  let timeoutId = null
-  let stopped = false
-
-  // Schedule one shush cycle starting at `startTime` (AudioContext time)
-  function scheduleShush(startTime, peakAmplitude) {
-    // Timing params (seconds)
-    const gap     = 0.14 + Math.random() * 0.08   // 140–220 ms silent gap
-    const attack  = 0.10 + Math.random() * 0.04   // 100–140 ms attack
-    const sustain = 0.28 + Math.random() * 0.08   // 280–360 ms sustain
-    const decay   = 0.46 + Math.random() * 0.10   // 460–560 ms decay
-    const cycleDuration = gap + attack + sustain + decay
-
-    const t0 = startTime + gap               // attack starts here
-    const t1 = t0 + attack                   // sustain starts
-    const t2 = t1 + sustain                  // decay starts
-    const t3 = t2 + decay                    // next cycle starts
-
-    // Amplitude envelope on breathGain
-    breathGain.gain.setValueAtTime(0.05, startTime)
-    breathGain.gain.setValueAtTime(0.05, t0)
-    breathGain.gain.linearRampToValueAtTime(peakAmplitude, t1)
-    breathGain.gain.setValueAtTime(peakAmplitude * 0.88, t1 + 0.02) // tiny flutter at peak
-    breathGain.gain.exponentialRampToValueAtTime(0.05, t3)
-
-    // Formant sweep: opens from 3 kHz → 4.8 kHz during attack, returns during decay
-    formant.frequency.setValueAtTime(3000, startTime)
-    formant.frequency.linearRampToValueAtTime(4800, t1)
-    formant.frequency.exponentialRampToValueAtTime(3200, t3)
-
-    return cycleDuration
-  }
-
-  // Recursive scheduler — always schedules the next shush 200 ms before it plays
-  const LOOKAHEAD = 0.20 // seconds
-  let nextShushAt = 0
-
-  function tick() {
-    if (stopped) return
-    const now = ctx.currentTime
-    if (nextShushAt < now + LOOKAHEAD) {
-      // Slight variation in peak amplitude per shush (0.82–1.0)
-      const peak = 0.82 + Math.random() * 0.18
-      const dur = scheduleShush(nextShushAt, peak)
-      nextShushAt += dur
-    }
-    // Check again in 100 ms
-    timeoutId = setTimeout(tick, 100)
-  }
-
+export function createAudioFilePlayer(url) {
+  let audio = null
   return {
     start(volume = 0.8) {
-      stopped = false
-
-      masterGain = ctx.createGain()
-      masterGain.gain.value = volume
-      masterGain.connect(ctx.destination)
-
-      // Breath envelope gain (rides on top of masterGain)
-      breathGain = ctx.createGain()
-      breathGain.gain.value = 0.05
-      breathGain.connect(masterGain)
-
-      // Formant bandpass — swept per cycle
-      formant = ctx.createBiquadFilter()
-      formant.type = 'bandpass'
-      formant.frequency.value = 3500
-      formant.Q.value = 0.85
-
-      // ── Layer 1: core "sh" turbulence 3–7 kHz ────────────────────────────
-      const src1 = createWhiteNoiseSource(ctx)
-      const hp1 = ctx.createBiquadFilter()
-      hp1.type = 'highpass'
-      hp1.frequency.value = 2800
-      hp1.Q.value = 0.4
-      const lp1 = ctx.createBiquadFilter()
-      lp1.type = 'lowpass'
-      lp1.frequency.value = 9000
-      const g1 = ctx.createGain()
-      g1.gain.value = 0.72
-      src1.connect(hp1)
-      hp1.connect(lp1)
-      lp1.connect(formant)
-      formant.connect(g1)
-      g1.connect(breathGain)
-      src1.start()
-
-      // ── Layer 2: mouth-air body 1.5–4 kHz (follows same envelope) ────────
-      const src2 = createPinkNoiseSource(ctx)
-      const hp2 = ctx.createBiquadFilter()
-      hp2.type = 'highpass'
-      hp2.frequency.value = 1500
-      const lp2 = ctx.createBiquadFilter()
-      lp2.type = 'lowpass'
-      lp2.frequency.value = 4000
-      const g2 = ctx.createGain()
-      g2.gain.value = 0.40
-      src2.connect(hp2)
-      hp2.connect(lp2)
-      lp2.connect(g2)
-      g2.connect(breathGain)
-      src2.start()
-
-      // ── Layer 3: always-on soft room-air undertone 700 Hz–2 kHz ──────────
-      // This gives a sense of the acoustic space / continuous breath presence
-      const src3 = createPinkNoiseSource(ctx)
-      const hp3 = ctx.createBiquadFilter()
-      hp3.type = 'highpass'
-      hp3.frequency.value = 700
-      const lp3 = ctx.createBiquadFilter()
-      lp3.type = 'lowpass'
-      lp3.frequency.value = 2000
-      const g3 = ctx.createGain()
-      g3.gain.value = 0.12   // always on, quiet background presence
-      src3.connect(hp3)
-      hp3.connect(lp3)
-      lp3.connect(g3)
-      g3.connect(masterGain)  // bypasses breathGain — always audible
-      src3.start()
-
-      sources = [src1, src2, src3]
-
-      // Start scheduler
-      nextShushAt = ctx.currentTime + 0.05
-      tick()
+      if (audio) { try { audio.pause() } catch (_) {} }
+      audio = new Audio(url)
+      audio.loop = true
+      audio.volume = volume
+      audio.play().catch(() => {})
     },
     stop() {
-      stopped = true
-      if (timeoutId) { clearTimeout(timeoutId); timeoutId = null }
-      sources.forEach((s) => { try { s.stop() } catch (_) {} })
-      masterGain?.disconnect()
-      sources = []
-      masterGain = null
-      breathGain = null
-      formant = null
-    },
-    setVolume(v) {
-      if (masterGain) masterGain.gain.setTargetAtTime(v, ctx.currentTime, 0.05)
-    },
-  }
-}
-// ─── Vacuum Cleaner ───────────────────────────────────────────────────────────
-/**
- * Realistic vacuum cleaner:
- *   - Motor harmonic stack: sine oscillators at 50 Hz and harmonics
- *     (50, 100, 150, 200, 250, 300, 400 Hz) — the characteristic "drone"
- *   - Turbulent air suction: band-filtered pink noise 200–3000 Hz
- *   - High-frequency air hiss: white noise 3–8 kHz (light)
- *   - Small random pitch wobble on the motor to add natural variation
- */
-export function createVacuumGenerator(ctx) {
-  let masterGain = null
-  let oscillators = []
-  let wobbleLfo = null
-  let sources = []
-
-  return {
-    start(volume = 0.8) {
-      masterGain = ctx.createGain()
-      masterGain.gain.value = volume
-      masterGain.connect(ctx.destination)
-
-      // ── Deep sub-body rumble: brown noise below 120 Hz ──────────────────────
-      // This is the "weight" you feel from a vacuum — the floor vibration layer
-      const srcBrown = createBrownNoiseSource(ctx)
-      const lpBrown = ctx.createBiquadFilter()
-      lpBrown.type = 'lowpass'
-      lpBrown.frequency.value = 120
-      lpBrown.Q.value = 0.7
-      const gBrown = ctx.createGain()
-      gBrown.gain.value = 0.55
-      srcBrown.connect(lpBrown)
-      lpBrown.connect(gBrown)
-      gBrown.connect(masterGain)
-      srcBrown.start()
-      sources.unshift(srcBrown) // add to cleanup list
-
-      // ── Motor harmonics ─────────────────────────────────────────────────────
-      // Real vacuums: 2-pole motor at 50 Hz line = 3000 RPM
-      // Harmonics decay as 1/n, mixed with slight inharmonicity for realism
-      const motorBase = 50 // Hz
-      const harmonicAmps = [0.65, 0.42, 0.30, 0.22, 0.16, 0.11, 0.08, 0.05] // louder
-      const motorGain = ctx.createGain()
-      motorGain.gain.value = 0.52
-      motorGain.connect(masterGain)
-
-      // Slight pitch wobble LFO (0.8 Hz, ±1.5 Hz drift — motor load variation)
-      wobbleLfo = ctx.createOscillator()
-      wobbleLfo.type = 'sine'
-      wobbleLfo.frequency.value = 0.8
-
-      for (let n = 1; n <= harmonicAmps.length; n++) {
-        const osc = ctx.createOscillator()
-        osc.type = 'sine'
-        osc.frequency.value = motorBase * n
-
-        // Connect wobble LFO → frequency modulation (scaled by harmonic number)
-        const wobbleMod = ctx.createGain()
-        wobbleMod.gain.value = 1.5 * n
-        wobbleLfo.connect(wobbleMod)
-        wobbleMod.connect(osc.frequency)
-
-        const oscGain = ctx.createGain()
-        oscGain.gain.value = harmonicAmps[n - 1]
-        osc.connect(oscGain)
-        oscGain.connect(motorGain)
-        osc.start()
-        oscillators.push(osc)
+      if (audio) {
+        audio.pause()
+        audio.src = ''
+        audio = null
       }
-      wobbleLfo.start()
-
-      // ── Turbulent air suction — broadband 200-3000 Hz ───────────────────────
-      const src1 = createPinkNoiseSource(ctx)
-      const hp1 = ctx.createBiquadFilter()
-      hp1.type = 'highpass'
-      hp1.frequency.value = 200
-      const lp1 = ctx.createBiquadFilter()
-      lp1.type = 'lowpass'
-      lp1.frequency.value = 3000
-      lp1.Q.value = 0.5
-      // Boost the 600-900 Hz "suction resonance" band
-      const boost1 = ctx.createBiquadFilter()
-      boost1.type = 'peaking'
-      boost1.frequency.value = 700
-      boost1.gain.value = 7
-      boost1.Q.value = 1.5
-      const g1 = ctx.createGain()
-      g1.gain.value = 0.62  // was 0.45 — heavier air body
-      src1.connect(hp1)
-      hp1.connect(lp1)
-      lp1.connect(boost1)
-      boost1.connect(g1)
-      g1.connect(masterGain)
-      src1.start()
-
-      // ── High-frequency air hiss 3–8 kHz ─────────────────────────────────────
-      const src2 = createWhiteNoiseSource(ctx)
-      const hp2 = ctx.createBiquadFilter()
-      hp2.type = 'highpass'
-      hp2.frequency.value = 3000
-      const lp2 = ctx.createBiquadFilter()
-      lp2.type = 'lowpass'
-      lp2.frequency.value = 8000
-      const g2 = ctx.createGain()
-      g2.gain.value = 0.28  // was 0.18
-      src2.connect(hp2)
-      hp2.connect(lp2)
-      lp2.connect(g2)
-      g2.connect(masterGain)
-      src2.start()
-
-      sources = [src1, src2]
-    },
-    stop() {
-      sources.forEach((s) => { try { s.stop() } catch (_) {} })
-      oscillators.forEach((o) => { try { o.stop() } catch (_) {} })
-      try { wobbleLfo?.stop() } catch (_) {}
-      masterGain?.disconnect()
-      sources = []
-      oscillators = []
-      masterGain = null
-      wobbleLfo = null
     },
     setVolume(v) {
-      if (masterGain) masterGain.gain.setTargetAtTime(v, ctx.currentTime, 0.05)
+      if (audio) audio.volume = Math.max(0, Math.min(1, v))
     },
   }
 }
-
 // ─── Hair Dryer ───────────────────────────────────────────────────────────────
 /**
  * Realistic hair dryer:
@@ -600,14 +337,15 @@ export function createHairdryerGenerator(ctx) {
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
-export function createGenerator(type, ctx) {
+export function createGenerator(type, _ctx) {
   switch (type) {
-    case 'rain':       return createRainGenerator(ctx)
-    case 'ocean':      return createOceanGenerator(ctx)
+    case 'rain':       return createRainGenerator(_ctx)
+    case 'ocean':      return createOceanGenerator(_ctx)
     case 'fan':
-    case 'hairdryer':  return createHairdryerGenerator(ctx)
-    case 'shh':        return createShhGenerator(ctx)
-    case 'vacuum':     return createVacuumGenerator(ctx)
-    default:           return createRainGenerator(ctx)
+    case 'hairdryer':  return createHairdryerGenerator(_ctx)
+    // shh & vacuum use real recordings — no Web Audio generation needed
+    case 'shh':        return createAudioFilePlayer('/audio/shh.mp3')
+    case 'vacuum':     return createAudioFilePlayer('/audio/vacuum.mp3')
+    default:           return createRainGenerator(_ctx)
   }
 }
