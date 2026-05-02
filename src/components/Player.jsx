@@ -51,11 +51,27 @@ export default function Player({
             <div className="flex items-center gap-2.5">
               <span className="text-2xl leading-none">{currentSound.emoji}</span>
               <div className="min-w-0">
-                <p className="text-white font-semibold text-sm truncate">
-                  {currentSound.name}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-white font-semibold text-sm truncate">
+                    {currentSound.name}
+                  </p>
+                  {/* Repeat-1 badge: visible when playing with no timer */}
+                  {isPlaying && !timeLeftFormatted && (
+                    <span className="inline-flex items-center justify-center rounded px-1 py-0.5 bg-white/10 text-white/60 flex-shrink-0">
+                      {/* repeat icon */}
+                      <svg viewBox="0 0 18 18" className="w-3 h-3 fill-current" aria-label="Loop">
+                        <path d="M2 5h11v2l3-3-3-3v2H1v5h1V5zm14 8H3v-2l-3 3 3 3v-2h13V9h-1v4z"/>
+                      </svg>
+                      <span className="text-[10px] font-bold leading-none ml-0.5">1</span>
+                    </span>
+                  )}
+                </div>
                 <p className="text-white/50 text-xs">
-                  {isPlaying ? 'Playing…' : 'Paused'}
+                  {!isPlaying
+                    ? 'Paused'
+                    : timeLeftFormatted
+                    ? `⏱ Stops in ${timeLeftFormatted}`
+                    : 'Playing'}
                 </p>
               </div>
             </div>
