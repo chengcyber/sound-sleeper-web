@@ -16,7 +16,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         // Precache all build artifacts (exclude mp3 — too large for precache)
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Exclude favicon.png (source file, too large; SVG + sized icons are used at runtime)
+        globPatterns: ['**/*.{js,css,html,svg,ico}', '**/icons/*.png'],
         // Cache audio files at runtime (CacheFirst) on first play,
         // so they are served from cache on subsequent visits / offline
         runtimeCaching: [

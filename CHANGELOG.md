@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.1] - 2026-05-02
+
+### Fixed
+- Favicon and PWA icons now have perfectly equal padding on all sides —
+  content is trimmed to its bounding box first, then centered in a square
+  canvas with 6% uniform padding, eliminating uneven whitespace
+- Regenerated `favicon.svg` from the corrected square source
+- Excluded oversized `favicon.png` source file from Workbox precache to fix
+  PWA build error (was 2.73 MB, exceeding the 2 MiB limit)
+
+---
+
 ## [1.0.0] - 2026-05-02
 
 ### Added
