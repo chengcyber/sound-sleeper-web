@@ -36,14 +36,16 @@ export function createAudioFilePlayer(url) {
       audio.play().catch(() => {})
     },
     // "Pause" = mute while keeping the element playing → iOS session stays alive
+    // NOTE: audio.volume = 0 does NOT work on iOS (volume is hardware-controlled).
+    // audio.muted = true is the correct cross-platform way to silence without stopping.
     pause() {
-      if (audio) { audio.volume = 0; muted = true }
+      if (audio) { audio.muted = true; muted = true }
     },
-    // Resume = restore saved volume (element is already playing)
+    // Resume = unmute (element is already playing)
     resume() {
       if (audio) {
         muted = false
-        audio.volume = userVolume
+        audio.muted = false
         // Guard: if somehow the element got paused (e.g. phone call interruption),
         // restart playback
         if (audio.paused) audio.play().catch(() => {})
@@ -59,7 +61,7 @@ export function createAudioFilePlayer(url) {
     },
     setVolume(v) {
       userVolume = Math.max(0, Math.min(1, v))
-      // Only apply immediately if not in muted-pause state
+      // Only apply if not in muted-pause state
       if (audio && !muted) {
         audio.volume = userVolume
       }

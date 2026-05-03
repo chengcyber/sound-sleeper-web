@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.2] - 2026-05-02
+### Fixed
+- Pause did not silence audio on iOS: `audio.volume = 0` is a no-op on iOS
+  (volume is hardware-controlled); replaced with `audio.muted = true/false`
+  which iOS does allow via JavaScript
+
 ## [1.2.1] - 2026-05-02
 ### Fixed
 - iOS lock screen card disappears after a few seconds of pause: switched from
