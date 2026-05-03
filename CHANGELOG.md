@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.0] - 2026-05-02
+### Changed
+- Removed Hair Dryer, Rain, and Ocean Waves sounds; app now focuses on Shhh and Vacuum only
+### Fixed
+- iOS lock screen pause button now actually pauses audio for HTMLAudioElement-based sounds
+  (previous mute-trick only worked for Web Audio nodes; HTMLAudioElement correctly retains
+  the lock screen card when `.pause()` is called, no keep-alive hacks needed)
+- Removed all silent-audio keep-alive and AudioContext complexity from useAudioPlayer
+
 ## [1.1.3] - 2026-05-02
 ### Fixed
 - iOS lock screen card disappears after pause: stop calling `stopGenerator` on pause; instead mute the Web Audio node to near-zero volume so the audio session and lock screen card remain alive. Resume unmutes rather than restarts the generator.
