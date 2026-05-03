@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.2] - 2026-05-02
+
+### Fixed
+- iOS lock screen card no longer disappears after pausing — silent `<audio>`
+  keep-alive is now maintained during pause so the OS audio session stays
+  active; the lock screen play button correctly resumes playback
+
+---
+
 ## [1.1.1] - 2026-05-02
 
 ### Fixed

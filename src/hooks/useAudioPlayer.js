@@ -79,12 +79,16 @@ export function useAudioPlayer() {
   }, [startSilentAudio])
 
   // ─── Internal: stop generator ────────────────────────────────────────────
-  const stopGenerator = useCallback(() => {
+  // keepSession=true: stop Web Audio but keep the silent <audio> running so
+  // iOS maintains the audio session and the lock screen card stays visible.
+  const stopGenerator = useCallback((keepSession = false) => {
     if (generatorRef.current) {
       generatorRef.current.stop()
       generatorRef.current = null
     }
-    stopSilentAudio()
+    if (!keepSession) {
+      stopSilentAudio()
+    }
   }, [stopSilentAudio])
 
   // ─── Select sound (auto-plays) ────────────────────────────────────────────
@@ -124,7 +128,7 @@ export function useAudioPlayer() {
   }, [currentSound, startGenerator])
 
   const pause = useCallback(() => {
-    stopGenerator()
+    stopGenerator(true) // keep silent audio alive so iOS session persists
     setIsPlaying(false)
     isPlayingRef.current = false
   }, [stopGenerator])
@@ -161,7 +165,7 @@ export function useAudioPlayer() {
 
     navigator.mediaSession.setActionHandler('pause', () => {
       if (isPlayingRef.current) {
-        stopGenerator()
+        stopGenerator(true) // keep silent audio alive
         setIsPlaying(false)
         isPlayingRef.current = false
         navigator.mediaSession.playbackState = 'paused'
@@ -169,7 +173,7 @@ export function useAudioPlayer() {
     })
 
     navigator.mediaSession.setActionHandler('stop', () => {
-      stopGenerator()
+      stopGenerator(false) // full stop
       setIsPlaying(false)
       isPlayingRef.current = false
       navigator.mediaSession.playbackState = 'none'
