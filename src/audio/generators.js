@@ -6,12 +6,18 @@
 // ─── Audio File Player ────────────────────────────────────────────────────────
 /**
  * Wraps an HTMLAudioElement.
- * On iOS the HTMLAudioElement IS the audio session, so calling pause() keeps
- * the lock screen card alive (unlike stopping a Web Audio node which destroys
- * the session).  resume() simply calls audio.play().
+ *
+ * iOS lock screen card strategy:
+ *   Calling audio.pause() marks the session as inactive and iOS removes the
+ *   lock screen card after a short timeout (~5 s).  Instead we keep the element
+ *   playing at volume 0 ("muted-playing") so the session stays alive indefinitely.
+ *   resume() restores the saved user volume.  stop() is the only place we truly
+ *   pause + destroy the element.
  */
 export function createAudioFilePlayer(url) {
   let audio = null
+  let userVolume = 0.8  // last volume set by the user (not 0 from mute)
+  let muted = false     // true while "paused" (audio still playing at vol=0)
 
   function ensureAudio(volume) {
     if (!audio) {
@@ -23,17 +29,28 @@ export function createAudioFilePlayer(url) {
 
   return {
     start(volume = 0.8) {
+      userVolume = volume
+      muted = false
       ensureAudio(volume)
       audio.volume = volume
       audio.play().catch(() => {})
     },
+    // "Pause" = mute while keeping the element playing → iOS session stays alive
     pause() {
-      if (audio) audio.pause()
+      if (audio) { audio.volume = 0; muted = true }
     },
+    // Resume = restore saved volume (element is already playing)
     resume() {
-      if (audio) audio.play().catch(() => {})
+      if (audio) {
+        muted = false
+        audio.volume = userVolume
+        // Guard: if somehow the element got paused (e.g. phone call interruption),
+        // restart playback
+        if (audio.paused) audio.play().catch(() => {})
+      }
     },
     stop() {
+      muted = false
       if (audio) {
         audio.pause()
         audio.src = ''
@@ -41,7 +58,11 @@ export function createAudioFilePlayer(url) {
       }
     },
     setVolume(v) {
-      if (audio) audio.volume = Math.max(0, Math.min(1, v))
+      userVolume = Math.max(0, Math.min(1, v))
+      // Only apply immediately if not in muted-pause state
+      if (audio && !muted) {
+        audio.volume = userVolume
+      }
     },
   }
 }

@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.1] - 2026-05-02
+### Fixed
+- iOS lock screen card disappears after a few seconds of pause: switched from
+  `audio.pause()` to `audio.volume = 0` (muted-playing) so the HTMLAudioElement
+  session stays active indefinitely; resume restores volume instantly with no
+  async `.play()` call, which also fixes the "quick resume doesn't work" issue
+
 ## [1.2.0] - 2026-05-02
 ### Changed
 - Removed Hair Dryer, Rain, and Ocean Waves sounds; app now focuses on Shhh and Vacuum only
