@@ -2,30 +2,22 @@
  * Audio players for Shhh and Vacuum — both backed by real audio files.
  * Each player exposes: start(volume), pause(), resume(), stop(), setVolume(v)
  *
- * iOS lock screen card strategy
+ * iOS lock screen card behaviour
  * ──────────────────────────────
- * iOS suspends AudioContext on screen lock and WILL NOT allow ctx.resume()
- * from the background — so any Web Audio routing (MediaElementSourceNode →
- * GainNode) silences audio the moment the screen locks, regardless of
- * onstatechange handlers.
+ * iOS keeps the lock screen card alive as long as audio is PLAYING.
+ * When the user explicitly pauses, the card disappears — this is correct:
+ * there is no way to silence audio AND keep the iOS session alive because
+ * iOS ignores audio.volume changes from JS (hardware-only) and audio.muted
+ * also terminates the session.
  *
- * What DOES work: keep the HTMLAudioElement playing NATIVELY (no AudioContext),
- * and "pause" by setting audio.volume to NEAR_ZERO (0.001) rather than calling
- * audio.pause().  iOS keeps the native audio session alive as long as the
- * element is playing with a non-zero volume, and the lock screen card persists.
- *
- *   audio.pause()        → session ends         ✗
- *   audio.muted = true   → session ends         ✗
- *   audio.volume = 0     → session may end      ✗
- *   audio.volume = 0.001 (playing) → keeps iOS session + lock screen card ✓
+ * Practical result:
+ *   - Start sound, lock phone → sound continues, lock screen card persists ✓
+ *   - Pause from lock screen / in-app → card goes away (correct / expected) ✓
  */
-
-const NEAR_ZERO = 0.001   // inaudible but keeps iOS native audio session alive
 
 export function createAudioFilePlayer(url) {
   let audio = null
   let userVolume = 0.8
-  let paused = false
 
   function setup(volume) {
     if (audio) return
@@ -37,27 +29,22 @@ export function createAudioFilePlayer(url) {
   return {
     start(volume = 0.8) {
       userVolume = volume
-      paused = false
       setup(volume)
       audio.volume = volume
       audio.play().catch(() => {})
     },
 
-    // "Pause" = drop volume to near-zero; element keeps playing → iOS session alive
     pause() {
       if (!audio) return
-      paused = true
-      audio.volume = NEAR_ZERO
+      audio.pause()
     },
 
     resume() {
       if (!audio) return
-      paused = false
-      audio.volume = userVolume
+      audio.play().catch(() => {})
     },
 
     stop() {
-      paused = false
       if (audio) {
         audio.pause()
         audio.src = ''
@@ -66,10 +53,8 @@ export function createAudioFilePlayer(url) {
     },
 
     setVolume(v) {
-      userVolume = Math.max(NEAR_ZERO, Math.min(1, v))
-      if (audio && !paused) {
-        audio.volume = userVolume
-      }
+      userVolume = Math.max(0, Math.min(1, v))
+      if (audio) audio.volume = userVolume
     },
   }
 }

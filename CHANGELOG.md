@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.6] - 2026-05-03
+### Fixed
+- Pause had no effect: `audio.volume` changes are silently ignored by iOS
+  (volume is hardware-only). Reverted to simple `audio.pause()` / `audio.play()`.
+  The lock screen card persists while audio is playing and disappears when
+  explicitly paused — correct and expected iOS behaviour.
+
 ## [1.2.5] - 2026-05-03
 ### Fixed
 - Audio still silent on screen lock: `AudioContext.resume()` is not permitted
