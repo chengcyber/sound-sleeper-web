@@ -1,16 +1,68 @@
-# React + Vite
+# Sound Sleeper
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A minimal white noise PWA for falling asleep. Pick a sound, set the volume, lock your phone — the audio keeps playing in the background with a lock screen card.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Two sounds** — Shhh (shushing) and Vacuum cleaner
+- **Volume control** with real-time track fill
+- **PWA** — installable on iOS and Android, works offline
+- **iOS lock screen card** — Media Session API integration for lock screen play/pause controls
+- Looping, low-latency native `HTMLAudioElement` playback
 
-## React Compiler
+## Getting Started
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev        # http://localhost:5173
+```
 
-## Expanding the ESLint configuration
+## Build
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm run build      # output → dist/
+npm run preview    # preview the production build locally
+```
+
+## Regenerate Icons
+
+Place your source icon at `public/favicon.png` (or `public/favicon.svg`), then:
+
+```bash
+node scripts/gen-icons.mjs
+```
+
+This generates all PWA icon sizes under `public/icons/`.
+
+## Project Structure
+
+```
+src/
+  audio/
+    generators.js       # HTMLAudioElement players (start/pause/resume/stop/setVolume)
+  components/
+    Player.jsx          # Main UI — sound grid + volume slider
+    SoundCard.jsx       # Individual sound card
+  data/
+    sounds.js           # Sound definitions (id, label, emoji)
+  hooks/
+    useAudioPlayer.js   # Audio state + Media Session API integration
+public/
+  audio/                # shh.mp3, vacuum.mp3
+  icons/                # Generated PWA icons
+```
+
+## iOS Notes
+
+iOS keeps the lock screen audio card alive as long as `HTMLAudioElement` is playing. When the user pauses, the card disappears — this is expected iOS behaviour. There is no way to silence audio and keep the session alive simultaneously on iOS (`audio.volume` is hardware-only and cannot be changed from JavaScript; `audio.muted = true` and `audio.pause()` both terminate the session).
+
+## Tech Stack
+
+- [React 19](https://react.dev)
+- [Vite](https://vite.dev)
+- [Tailwind CSS](https://tailwindcss.com)
+- [vite-plugin-pwa](https://vite-pwa-org.netlify.app)
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md).
