@@ -4,53 +4,34 @@
  *
  * iOS lock screen card strategy
  * ──────────────────────────────
- * iOS drops the lock screen card the moment it detects no audio output:
- *   - audio.pause()      → session ends   ✗
- *   - audio.muted = true → session ends   ✗  (iOS treats muted as inactive)
- *   - audio.volume = 0   → ignored on iOS ✗  (volume is hardware-only)
+ * iOS suspends AudioContext on screen lock and WILL NOT allow ctx.resume()
+ * from the background — so any Web Audio routing (MediaElementSourceNode →
+ * GainNode) silences audio the moment the screen locks, regardless of
+ * onstatechange handlers.
  *
- * What DOES work: keep the HTMLAudioElement playing AND route it through a
- * Web Audio GainNode set to ~0.001 (inaudible, but non-zero output).
- * iOS sees continuous output → session + lock screen card persist indefinitely.
+ * What DOES work: keep the HTMLAudioElement playing NATIVELY (no AudioContext),
+ * and "pause" by setting audio.volume to NEAR_ZERO (0.001) rather than calling
+ * audio.pause().  iOS keeps the native audio session alive as long as the
+ * element is playing with a non-zero volume, and the lock screen card persists.
  *
- * Architecture:
- *   HTMLAudioElement (always playing)
- *     → MediaElementSourceNode
- *     → GainNode  (userVolume while playing, NEAR_ZERO while "paused")
- *     → AudioContext.destination
+ *   audio.pause()        → session ends         ✗
+ *   audio.muted = true   → session ends         ✗
+ *   audio.volume = 0     → session may end      ✗
+ *   audio.volume = 0.001 (playing) → keeps iOS session + lock screen card ✓
  */
 
-const NEAR_ZERO = 0.001   // inaudible but keeps iOS session alive
+const NEAR_ZERO = 0.001   // inaudible but keeps iOS native audio session alive
 
 export function createAudioFilePlayer(url) {
   let audio = null
-  let ctx = null
-  let sourceNode = null
-  let gainNode = null
   let userVolume = 0.8
   let paused = false
 
   function setup(volume) {
-    if (audio) return   // already set up
-
-    ctx = new (window.AudioContext || window.webkitAudioContext)()
-
+    if (audio) return
     audio = new Audio(url)
     audio.loop = true
-    // Note: crossOrigin is NOT set — these are same-origin files and adding it
-    // would require the server to send CORS headers, which could break loading.
-
-    sourceNode = ctx.createMediaElementSource(audio)
-    gainNode = ctx.createGain()
-    gainNode.gain.value = volume
-    sourceNode.connect(gainNode)
-    gainNode.connect(ctx.destination)
-
-    // iOS suspends the AudioContext on screen lock. Auto-resume it so audio
-    // keeps flowing through the GainNode and the lock screen card stays alive.
-    ctx.onstatechange = () => {
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
-    }
+    audio.volume = volume
   }
 
   return {
@@ -58,45 +39,36 @@ export function createAudioFilePlayer(url) {
       userVolume = volume
       paused = false
       setup(volume)
-      gainNode.gain.cancelScheduledValues(ctx.currentTime)
-      gainNode.gain.setValueAtTime(volume, ctx.currentTime)
-      if (ctx.state === 'suspended') ctx.resume()
+      audio.volume = volume
       audio.play().catch(() => {})
     },
 
-    // "Pause" = drop gain to near-zero; element keeps playing → iOS session alive
+    // "Pause" = drop volume to near-zero; element keeps playing → iOS session alive
     pause() {
-      if (!gainNode) return
+      if (!audio) return
       paused = true
-      gainNode.gain.cancelScheduledValues(ctx.currentTime)
-      gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
-      gainNode.gain.linearRampToValueAtTime(NEAR_ZERO, ctx.currentTime + 0.05)
+      audio.volume = NEAR_ZERO
     },
 
-    // Resume = ramp gain back up instantly
     resume() {
-      if (!gainNode) return
+      if (!audio) return
       paused = false
-      gainNode.gain.cancelScheduledValues(ctx.currentTime)
-      gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
-      gainNode.gain.linearRampToValueAtTime(userVolume, ctx.currentTime + 0.05)
-      if (ctx.state === 'suspended') ctx.resume()
+      audio.volume = userVolume
     },
 
     stop() {
       paused = false
-      if (audio)      { audio.pause(); audio.src = ''; audio = null }
-      if (sourceNode) { sourceNode.disconnect(); sourceNode = null }
-      if (gainNode)   { gainNode.disconnect();   gainNode = null }
-      if (ctx)        { ctx.close().catch(() => {}); ctx = null }
+      if (audio) {
+        audio.pause()
+        audio.src = ''
+        audio = null
+      }
     },
 
     setVolume(v) {
-      userVolume = Math.max(0, Math.min(1, v))
-      if (gainNode && !paused) {
-        gainNode.gain.cancelScheduledValues(ctx.currentTime)
-        gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
-        gainNode.gain.linearRampToValueAtTime(userVolume, ctx.currentTime + 0.05)
+      userVolume = Math.max(NEAR_ZERO, Math.min(1, v))
+      if (audio && !paused) {
+        audio.volume = userVolume
       }
     },
   }

@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.5] - 2026-05-03
+### Fixed
+- Audio still silent on screen lock: `AudioContext.resume()` is not permitted
+  from the background on iOS — any Web Audio routing (MediaElementSourceNode →
+  GainNode) is silenced the moment the screen locks. Removed Web Audio entirely.
+  "Pause" now sets `audio.volume = 0.001` directly on the HTMLAudioElement
+  (non-zero, so iOS keeps the native audio session and lock screen card alive).
+
 ## [1.2.4] - 2026-05-03
 ### Fixed
 - Audio silent immediately on screen lock: iOS suspends the AudioContext when
