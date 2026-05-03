@@ -1,9 +1,15 @@
+import { useRegisterSW } from 'virtual:pwa-register/react'
 import { SOUNDS } from './data/sounds'
 import { useAudioPlayer } from './hooks/useAudioPlayer'
 import SoundCard from './components/SoundCard'
 import Player from './components/Player'
 
 export default function App() {
+  const {
+    needRefresh: [needRefresh],
+    updateServiceWorker,
+  } = useRegisterSW()
+
   const {
     currentSound,
     isPlaying,
@@ -20,6 +26,17 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col font-sans">
+      {needRefresh && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white text-sm px-4 py-2 rounded-full shadow-lg flex items-center gap-3 whitespace-nowrap">
+          <span>有新版本可用</span>
+          <button
+            className="underline font-semibold"
+            onClick={() => updateServiceWorker(true)}
+          >
+            立即更新
+          </button>
+        </div>
+      )}
       {/* Stars / dots decorative background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         {[...Array(50)].map((_, i) => (
