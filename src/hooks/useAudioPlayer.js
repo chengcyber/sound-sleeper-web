@@ -27,12 +27,9 @@ export function useAudioPlayer() {
   const [currentSound, setCurrentSound] = useState(null) // sound object from SOUNDS[]
   const [isPlaying, setIsPlaying] = useState(false)
   const [volume, setVolumeState] = useState(0.75)
-  const [timerMinutes, setTimerMinutes] = useState(null) // null = off
-  const [timeLeft, setTimeLeft] = useState(null) // seconds remaining
 
   const ctxRef = useRef(null)
   const generatorRef = useRef(null)
-  const timerIntervalRef = useRef(null)
   const volumeRef = useRef(0.75)
 
   // Refs kept in sync with state so event listeners can read current values
@@ -141,51 +138,13 @@ export function useAudioPlayer() {
     }
   }, [])
 
-  // ─── Sleep Timer ──────────────────────────────────────────────────────────
-  const clearTimer = useCallback(() => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current)
-      timerIntervalRef.current = null
-    }
-    setTimeLeft(null)
-  }, [])
-
-  const setTimer = useCallback(
-    (minutes) => {
-      clearTimer()
-      if (!minutes) {
-        setTimerMinutes(null)
-        return
-      }
-      setTimerMinutes(minutes)
-      let remaining = minutes * 60
-      setTimeLeft(remaining)
-
-      timerIntervalRef.current = setInterval(() => {
-        remaining -= 1
-        setTimeLeft(remaining)
-        if (remaining <= 0) {
-          clearInterval(timerIntervalRef.current)
-          timerIntervalRef.current = null
-          setTimeLeft(null)
-          setTimerMinutes(null)
-          // Fade out then stop
-          stopGenerator()
-          setIsPlaying(false)
-        }
-      }, 1000)
-    },
-    [clearTimer, stopGenerator]
-  )
-
   // ─── Cleanup on unmount ───────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       stopGenerator()
-      clearTimer()
       try { ctxRef.current?.close() } catch (_) {}
     }
-  }, [stopGenerator, clearTimer])
+  }, [stopGenerator])
 
   // ─── Background / screen-off recovery ────────────────────────────────────
   useEffect(() => {
@@ -219,25 +178,13 @@ export function useAudioPlayer() {
     }
   }, [startSilentAudio])
 
-  // ─── Format time ─────────────────────────────────────────────────────────
-  function formatTime(seconds) {
-    if (seconds == null) return null
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
-
   return {
     currentSound,
     isPlaying,
     volume,
-    timerMinutes,
-    timeLeft,
-    timeLeftFormatted: formatTime(timeLeft),
     selectSound,
     play,
     pause,
     setVolume,
-    setTimer,
   }
 }

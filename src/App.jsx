@@ -14,14 +14,10 @@ export default function App() {
     currentSound,
     isPlaying,
     volume,
-    timerMinutes,
-    timeLeft,
-    timeLeftFormatted,
     selectSound,
     play,
     pause,
     setVolume,
-    setTimer,
   } = useAudioPlayer()
 
   return (
@@ -96,13 +92,9 @@ export default function App() {
         currentSound={currentSound}
         isPlaying={isPlaying}
         volume={volume}
-        timerMinutes={timerMinutes}
-        timeLeft={timeLeft}
-        timeLeftFormatted={timeLeftFormatted}
         onPlay={play}
         onPause={pause}
         onVolumeChange={setVolume}
-        onSetTimer={setTimer}
       />
     </div>
   )

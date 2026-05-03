@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] - 2026-05-02
+
+### Changed
+- Removed Sleep Timer — simplified the player bar and reduced its height
+- Volume control redesigned: now a full-width row above the playback controls,
+  with a larger touch-friendly slider and percentage readout
+- Volume can now be adjusted at any time, even before a sound is selected
+
+---
+
 ## [1.0.1] - 2026-05-02
 
 ### Fixed
