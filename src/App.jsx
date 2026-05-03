@@ -65,6 +65,7 @@ export default function App() {
         <p className="text-white/40 text-sm md:text-base">
           Soothing white noise for better baby sleep
         </p>
+        <p className="text-white/20 text-xs mt-2">v{__APP_VERSION__}</p>
       </header>
 
       {/* Sound Grid */}
