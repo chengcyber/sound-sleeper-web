@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.1] - 2026-05-02
+
+### Fixed
+- iOS lock screen play/pause controls now work correctly — registered Media
+  Session API handlers (`play`, `pause`, `stop`) so the system media card
+  responds to user interaction; lock screen card also displays the sound name
+- Volume slider visual bug fixed — replaced `accent-color` + webkit track
+  classes with a dynamic inline `linear-gradient` that correctly fills the
+  track left of the thumb on all browsers (WebKit / Firefox)
+
+---
+
 ## [1.1.0] - 2026-05-02
 
 ### Changed

@@ -38,15 +38,20 @@ export default function Player({
           onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
           className={clsx(
             'flex-1 h-2 rounded-full appearance-none cursor-pointer',
-            'accent-indigo-500',
-            '[&::-webkit-slider-runnable-track]:rounded-full',
-            '[&::-webkit-slider-runnable-track]:bg-white/20',
             '[&::-webkit-slider-thumb]:appearance-none',
             '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5',
             '[&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-400',
             '[&::-webkit-slider-thumb]:cursor-pointer',
-            '[&::-webkit-slider-thumb]:shadow-md'
+            '[&::-webkit-slider-thumb]:shadow-md',
+            '[&::-webkit-slider-thumb]:border-0',
+            '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5',
+            '[&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-indigo-400',
+            '[&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer',
+            '[&::-moz-range-track]:rounded-full [&::-moz-range-track]:h-2'
           )}
+          style={{
+            background: `linear-gradient(to right, rgb(129 140 248) ${volumePct}%, rgba(255,255,255,0.2) ${volumePct}%)`,
+          }}
           aria-label="Volume"
         />
         <span className="text-white/50 text-xs tabular-nums w-8 text-right select-none">

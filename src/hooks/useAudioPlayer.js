@@ -138,6 +138,46 @@ export function useAudioPlayer() {
     }
   }, [])
 
+  // ─── Media Session API (lock screen controls) ─────────────────────────────
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+
+    if (currentSound) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSound.name,
+        artist: 'Sound Sleeper',
+        album: 'White Noise',
+      })
+    }
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      if (!isPlayingRef.current && currentSoundRef.current) {
+        startGenerator(currentSoundRef.current, volumeRef.current)
+        setIsPlaying(true)
+        isPlayingRef.current = true
+        navigator.mediaSession.playbackState = 'playing'
+      }
+    })
+
+    navigator.mediaSession.setActionHandler('pause', () => {
+      if (isPlayingRef.current) {
+        stopGenerator()
+        setIsPlaying(false)
+        isPlayingRef.current = false
+        navigator.mediaSession.playbackState = 'paused'
+      }
+    })
+
+    navigator.mediaSession.setActionHandler('stop', () => {
+      stopGenerator()
+      setIsPlaying(false)
+      isPlayingRef.current = false
+      navigator.mediaSession.playbackState = 'none'
+    })
+
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'
+  }, [currentSound, isPlaying, startGenerator, stopGenerator])
+
   // ─── Cleanup on unmount ───────────────────────────────────────────────────
   useEffect(() => {
     return () => {
