@@ -21,4 +21,13 @@ export const SOUNDS = [
     accentColor: 'bg-amber-400',
     type: 'vacuum',
   },
+  {
+    id: 'hairdryer',
+    name: 'Hair Dryer',
+    description: 'Warm steady hair dryer hum',
+    emoji: '💨',
+    color: 'from-sky-500 to-blue-900',
+    accentColor: 'bg-sky-400',
+    type: 'hairdryer',
+  },
 ]

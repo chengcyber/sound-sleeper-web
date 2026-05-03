@@ -62,8 +62,9 @@ export function createAudioFilePlayer(url) {
 // ─── Factory ──────────────────────────────────────────────────────────────────
 export function createGenerator(type) {
   switch (type) {
-    case 'shh':    return createAudioFilePlayer('/audio/shh.mp3')
-    case 'vacuum': return createAudioFilePlayer('/audio/vacuum.mp3')
-    default:       return createAudioFilePlayer('/audio/shh.mp3')
+    case 'shh':       return createAudioFilePlayer('/audio/shh.mp3')
+    case 'vacuum':    return createAudioFilePlayer('/audio/vacuum.mp3')
+    case 'hairdryer': return createAudioFilePlayer('/audio/hairdryer.mp3')
+    default:          return createAudioFilePlayer('/audio/shh.mp3')
   }
 }

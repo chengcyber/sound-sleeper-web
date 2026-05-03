@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.3.0] - 2026-05-03
+### Added
+- Hair Dryer white noise (`hairdryer.mp3`) as a new sound option
+
+### Changed
+- Updated Shhh audio file (`shh.mp3`) with a new recording
+
 ## [1.2.6] - 2026-05-03
 ### Fixed
 - Pause had no effect: `audio.volume` changes are silently ignored by iOS
