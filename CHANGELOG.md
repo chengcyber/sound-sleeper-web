@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.4] - 2026-05-03
+### Fixed
+- Audio silent immediately on screen lock: iOS suspends the AudioContext when
+  the screen locks, blocking the GainNode pipeline even though the
+  HTMLAudioElement is still playing. Fixed by adding `ctx.onstatechange` that
+  calls `ctx.resume()` whenever the context enters the "suspended" state, keeping
+  audio flowing through the GainNode and the lock screen card alive.
+
 ## [1.2.3] - 2026-05-02
 ### Fixed
 - iOS lock screen card disappears on pause: `audio.muted=true` also causes iOS

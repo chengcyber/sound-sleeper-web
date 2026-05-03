@@ -45,6 +45,12 @@ export function createAudioFilePlayer(url) {
     gainNode.gain.value = volume
     sourceNode.connect(gainNode)
     gainNode.connect(ctx.destination)
+
+    // iOS suspends the AudioContext on screen lock. Auto-resume it so audio
+    // keeps flowing through the GainNode and the lock screen card stays alive.
+    ctx.onstatechange = () => {
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+    }
   }
 
   return {
