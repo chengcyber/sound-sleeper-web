@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.2.3] - 2026-05-02
+### Fixed
+- iOS lock screen card disappears on pause: `audio.muted=true` also causes iOS
+  to end the session. Only truly working fix: route HTMLAudioElement through
+  a Web Audio MediaElementSourceNode → GainNode, and on "pause" ramp gain to
+  0.001 (inaudible but non-zero). iOS sees continuous audio output and keeps
+  the lock screen card alive indefinitely. Resume ramps gain back to userVolume.
+
 ## [1.2.2] - 2026-05-02
 ### Fixed
 - Pause did not silence audio on iOS: `audio.volume = 0` is a no-op on iOS

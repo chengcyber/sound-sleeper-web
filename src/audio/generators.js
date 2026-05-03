@@ -1,69 +1,96 @@
 /**
  * Audio players for Shhh and Vacuum — both backed by real audio files.
  * Each player exposes: start(volume), pause(), resume(), stop(), setVolume(v)
+ *
+ * iOS lock screen card strategy
+ * ──────────────────────────────
+ * iOS drops the lock screen card the moment it detects no audio output:
+ *   - audio.pause()      → session ends   ✗
+ *   - audio.muted = true → session ends   ✗  (iOS treats muted as inactive)
+ *   - audio.volume = 0   → ignored on iOS ✗  (volume is hardware-only)
+ *
+ * What DOES work: keep the HTMLAudioElement playing AND route it through a
+ * Web Audio GainNode set to ~0.001 (inaudible, but non-zero output).
+ * iOS sees continuous output → session + lock screen card persist indefinitely.
+ *
+ * Architecture:
+ *   HTMLAudioElement (always playing)
+ *     → MediaElementSourceNode
+ *     → GainNode  (userVolume while playing, NEAR_ZERO while "paused")
+ *     → AudioContext.destination
  */
 
-// ─── Audio File Player ────────────────────────────────────────────────────────
-/**
- * Wraps an HTMLAudioElement.
- *
- * iOS lock screen card strategy:
- *   Calling audio.pause() marks the session as inactive and iOS removes the
- *   lock screen card after a short timeout (~5 s).  Instead we keep the element
- *   playing at volume 0 ("muted-playing") so the session stays alive indefinitely.
- *   resume() restores the saved user volume.  stop() is the only place we truly
- *   pause + destroy the element.
- */
+const NEAR_ZERO = 0.001   // inaudible but keeps iOS session alive
+
 export function createAudioFilePlayer(url) {
   let audio = null
-  let userVolume = 0.8  // last volume set by the user (not 0 from mute)
-  let muted = false     // true while "paused" (audio still playing at vol=0)
+  let ctx = null
+  let sourceNode = null
+  let gainNode = null
+  let userVolume = 0.8
+  let paused = false
 
-  function ensureAudio(volume) {
-    if (!audio) {
-      audio = new Audio(url)
-      audio.loop = true
-      audio.volume = volume
-    }
+  function setup(volume) {
+    if (audio) return   // already set up
+
+    ctx = new (window.AudioContext || window.webkitAudioContext)()
+
+    audio = new Audio(url)
+    audio.loop = true
+    // Note: crossOrigin is NOT set — these are same-origin files and adding it
+    // would require the server to send CORS headers, which could break loading.
+
+    sourceNode = ctx.createMediaElementSource(audio)
+    gainNode = ctx.createGain()
+    gainNode.gain.value = volume
+    sourceNode.connect(gainNode)
+    gainNode.connect(ctx.destination)
   }
 
   return {
     start(volume = 0.8) {
       userVolume = volume
-      muted = false
-      ensureAudio(volume)
-      audio.volume = volume
+      paused = false
+      setup(volume)
+      gainNode.gain.cancelScheduledValues(ctx.currentTime)
+      gainNode.gain.setValueAtTime(volume, ctx.currentTime)
+      if (ctx.state === 'suspended') ctx.resume()
       audio.play().catch(() => {})
     },
-    // "Pause" = mute while keeping the element playing → iOS session stays alive
-    // NOTE: audio.volume = 0 does NOT work on iOS (volume is hardware-controlled).
-    // audio.muted = true is the correct cross-platform way to silence without stopping.
+
+    // "Pause" = drop gain to near-zero; element keeps playing → iOS session alive
     pause() {
-      if (audio) { audio.muted = true; muted = true }
+      if (!gainNode) return
+      paused = true
+      gainNode.gain.cancelScheduledValues(ctx.currentTime)
+      gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
+      gainNode.gain.linearRampToValueAtTime(NEAR_ZERO, ctx.currentTime + 0.05)
     },
-    // Resume = unmute (element is already playing)
+
+    // Resume = ramp gain back up instantly
     resume() {
-      if (audio) {
-        muted = false
-        audio.muted = false
-        // Guard: if somehow the element got paused (e.g. phone call interruption),
-        // restart playback
-        if (audio.paused) audio.play().catch(() => {})
-      }
+      if (!gainNode) return
+      paused = false
+      gainNode.gain.cancelScheduledValues(ctx.currentTime)
+      gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
+      gainNode.gain.linearRampToValueAtTime(userVolume, ctx.currentTime + 0.05)
+      if (ctx.state === 'suspended') ctx.resume()
     },
+
     stop() {
-      muted = false
-      if (audio) {
-        audio.pause()
-        audio.src = ''
-        audio = null
-      }
+      paused = false
+      if (audio)      { audio.pause(); audio.src = ''; audio = null }
+      if (sourceNode) { sourceNode.disconnect(); sourceNode = null }
+      if (gainNode)   { gainNode.disconnect();   gainNode = null }
+      if (ctx)        { ctx.close().catch(() => {}); ctx = null }
     },
+
     setVolume(v) {
       userVolume = Math.max(0, Math.min(1, v))
-      // Only apply if not in muted-pause state
-      if (audio && !muted) {
-        audio.volume = userVolume
+      if (gainNode && !paused) {
+        gainNode.gain.cancelScheduledValues(ctx.currentTime)
+        gainNode.gain.setValueAtTime(gainNode.gain.value, ctx.currentTime)
+        gainNode.gain.linearRampToValueAtTime(userVolume, ctx.currentTime + 0.05)
       }
     },
   }
