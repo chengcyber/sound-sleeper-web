@@ -2,9 +2,26 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { createGenerator } from '../audio/generators'
 
 /**
+ * A 0.5-second silent WAV encoded as a data URI.
+ * Used as a looping <audio> element to keep the iOS/Android audio session
+ * alive when the screen locks, preventing Web Audio from being killed.
+ */
+const SILENT_AUDIO_URI =
+  'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+
+/**
  * Core audio player hook.
  * Manages Web Audio API context lifecycle, sound selection,
  * play/pause, volume, and a countdown sleep timer.
+ *
+ * Background-playback strategy (tablets / phones):
+ *  1. Silent <audio> loop   — tricks iOS/Android into maintaining an active
+ *     audio session even when the screen locks, so Web Audio keeps running.
+ *  2. visibilitychange      — resumes a suspended AudioContext and restarts
+ *     the generator if the user returns to the tab while it was "playing".
+ *
+ * Note: Screen Wake Lock is intentionally NOT used — for a sleep/ambient
+ * sound app the user wants the screen to turn off while audio keeps playing.
  */
 export function useAudioPlayer() {
   const [currentSound, setCurrentSound] = useState(null) // sound object from SOUNDS[]
@@ -18,6 +35,13 @@ export function useAudioPlayer() {
   const timerIntervalRef = useRef(null)
   const volumeRef = useRef(0.75)
 
+  // Refs kept in sync with state so event listeners can read current values
+  const isPlayingRef = useRef(false)
+  const currentSoundRef = useRef(null)
+
+  // Silent audio element — keeps the audio session alive on mobile
+  const silentAudioRef = useRef(null)
+
   // ─── AudioContext lazy init ───────────────────────────────────────────────
   function getCtx() {
     if (!ctxRef.current || ctxRef.current.state === 'closed') {
@@ -25,6 +49,23 @@ export function useAudioPlayer() {
     }
     return ctxRef.current
   }
+
+  // ─── Silent audio session (iOS/Android keep-alive) ────────────────────────
+  const startSilentAudio = useCallback(() => {
+    if (!silentAudioRef.current) {
+      const audio = new Audio(SILENT_AUDIO_URI)
+      audio.loop = true
+      audio.volume = 0
+      silentAudioRef.current = audio
+    }
+    silentAudioRef.current.play().catch(() => {})
+  }, [])
+
+  const stopSilentAudio = useCallback(() => {
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause()
+    }
+  }, [])
 
   // ─── Internal: start generator ───────────────────────────────────────────
   const startGenerator = useCallback(async (sound, vol) => {
@@ -37,7 +78,8 @@ export function useAudioPlayer() {
     const gen = createGenerator(sound.type, ctx)
     gen.start(vol)
     generatorRef.current = gen
-  }, [])
+    startSilentAudio()
+  }, [startSilentAudio])
 
   // ─── Internal: stop generator ────────────────────────────────────────────
   const stopGenerator = useCallback(() => {
@@ -45,7 +87,8 @@ export function useAudioPlayer() {
       generatorRef.current.stop()
       generatorRef.current = null
     }
-  }, [])
+    stopSilentAudio()
+  }, [stopSilentAudio])
 
   // ─── Select sound (auto-plays) ────────────────────────────────────────────
   const selectSound = useCallback(
@@ -55,9 +98,11 @@ export function useAudioPlayer() {
         if (isPlaying) {
           stopGenerator()
           setIsPlaying(false)
+          isPlayingRef.current = false
         } else {
           startGenerator(sound, volumeRef.current)
           setIsPlaying(true)
+          isPlayingRef.current = true
         }
         return
       }
@@ -66,7 +111,9 @@ export function useAudioPlayer() {
       // Start new
       startGenerator(sound, volumeRef.current)
       setCurrentSound(sound)
+      currentSoundRef.current = sound
       setIsPlaying(true)
+      isPlayingRef.current = true
     },
     [currentSound, isPlaying, startGenerator, stopGenerator]
   )
@@ -76,11 +123,13 @@ export function useAudioPlayer() {
     if (!currentSound) return
     startGenerator(currentSound, volumeRef.current)
     setIsPlaying(true)
+    isPlayingRef.current = true
   }, [currentSound, startGenerator])
 
   const pause = useCallback(() => {
     stopGenerator()
     setIsPlaying(false)
+    isPlayingRef.current = false
   }, [stopGenerator])
 
   // ─── Volume ───────────────────────────────────────────────────────────────
@@ -137,6 +186,38 @@ export function useAudioPlayer() {
       try { ctxRef.current?.close() } catch (_) {}
     }
   }, [stopGenerator, clearTimer])
+
+  // ─── Background / screen-off recovery ────────────────────────────────────
+  useEffect(() => {
+    // When the tab becomes visible again, resume a suspended AudioContext and
+    // restart the generator if we are supposed to be playing. This covers the
+    // case where the browser suspended audio while the screen was off.
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const ctx = ctxRef.current
+        if (!ctx) return
+
+        if (ctx.state === 'suspended' && isPlayingRef.current) {
+          try {
+            await ctx.resume()
+          } catch (_) {}
+
+          // Generator may have been garbage-collected; restart it
+          if (!generatorRef.current && currentSoundRef.current) {
+            const gen = createGenerator(currentSoundRef.current.type, ctx)
+            gen.start(volumeRef.current)
+            generatorRef.current = gen
+            startSilentAudio()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [startSilentAudio])
 
   // ─── Format time ─────────────────────────────────────────────────────────
   function formatTime(seconds) {
