@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.3] - 2026-05-02
+### Fixed
+- iOS lock screen card disappears after pause: stop calling `stopGenerator` on pause; instead mute the Web Audio node to near-zero volume so the audio session and lock screen card remain alive. Resume unmutes rather than restarts the generator.
+
 ## [1.1.2] - 2026-05-02
 
 ### Fixed

@@ -97,11 +97,15 @@ export function useAudioPlayer() {
       // If same sound tapped while playing → toggle play/pause
       if (currentSound?.id === sound.id) {
         if (isPlaying) {
-          stopGenerator()
+          if (generatorRef.current) generatorRef.current.setVolume(0.0001)
           setIsPlaying(false)
           isPlayingRef.current = false
         } else {
-          startGenerator(sound, volumeRef.current)
+          if (generatorRef.current) {
+            generatorRef.current.setVolume(volumeRef.current)
+          } else {
+            startGenerator(sound, volumeRef.current)
+          }
           setIsPlaying(true)
           isPlayingRef.current = true
         }
@@ -120,18 +124,29 @@ export function useAudioPlayer() {
   )
 
   // ─── Play / Pause ─────────────────────────────────────────────────────────
+  // On iOS, stopping Web Audio output causes the lock screen card to disappear.
+  // Instead of stopping the generator, we mute it to near-zero volume so the
+  // audio session stays active and the lock screen card remains visible.
   const play = useCallback(() => {
     if (!currentSound) return
-    startGenerator(currentSound, volumeRef.current)
+    if (generatorRef.current) {
+      // Generator is already running (muted from pause) — just unmute
+      generatorRef.current.setVolume(volumeRef.current)
+    } else {
+      startGenerator(currentSound, volumeRef.current)
+    }
     setIsPlaying(true)
     isPlayingRef.current = true
   }, [currentSound, startGenerator])
 
   const pause = useCallback(() => {
-    stopGenerator(true) // keep silent audio alive so iOS session persists
+    if (generatorRef.current) {
+      // Mute instead of stop — keeps iOS audio session + lock screen card alive
+      generatorRef.current.setVolume(0.0001)
+    }
     setIsPlaying(false)
     isPlayingRef.current = false
-  }, [stopGenerator])
+  }, [])
 
   // ─── Volume ───────────────────────────────────────────────────────────────
   const setVolume = useCallback((v) => {
@@ -156,7 +171,11 @@ export function useAudioPlayer() {
 
     navigator.mediaSession.setActionHandler('play', () => {
       if (!isPlayingRef.current && currentSoundRef.current) {
-        startGenerator(currentSoundRef.current, volumeRef.current)
+        if (generatorRef.current) {
+          generatorRef.current.setVolume(volumeRef.current)
+        } else {
+          startGenerator(currentSoundRef.current, volumeRef.current)
+        }
         setIsPlaying(true)
         isPlayingRef.current = true
         navigator.mediaSession.playbackState = 'playing'
@@ -165,7 +184,9 @@ export function useAudioPlayer() {
 
     navigator.mediaSession.setActionHandler('pause', () => {
       if (isPlayingRef.current) {
-        stopGenerator(true) // keep silent audio alive
+        if (generatorRef.current) {
+          generatorRef.current.setVolume(0.0001) // mute, don't stop
+        }
         setIsPlaying(false)
         isPlayingRef.current = false
         navigator.mediaSession.playbackState = 'paused'
