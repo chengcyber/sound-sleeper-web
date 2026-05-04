@@ -18,6 +18,32 @@
 export function createAudioFilePlayer(url) {
   let audio = null
   let userVolume = 0.8
+  let fadeTimer = null
+
+  function cancelFade() {
+    if (fadeTimer !== null) {
+      clearInterval(fadeTimer)
+      fadeTimer = null
+    }
+  }
+
+  function fadeIn(targetVolume, duration = 2000) {
+    cancelFade()
+    if (!audio) return
+    audio.volume = 0
+    const steps = Math.round(duration / 50)
+    const step = targetVolume / steps
+    let current = 0
+    fadeTimer = setInterval(() => {
+      current += step
+      if (current >= targetVolume) {
+        audio.volume = targetVolume
+        cancelFade()
+      } else {
+        audio.volume = current
+      }
+    }, 50)
+  }
 
   function setup(volume) {
     if (audio) return
@@ -30,21 +56,24 @@ export function createAudioFilePlayer(url) {
     start(volume = 0.8) {
       userVolume = volume
       setup(volume)
-      audio.volume = volume
       audio.play().catch(() => {})
+      fadeIn(volume)
     },
 
     pause() {
       if (!audio) return
+      cancelFade()
       audio.pause()
     },
 
     resume() {
       if (!audio) return
       audio.play().catch(() => {})
+      fadeIn(userVolume)
     },
 
     stop() {
+      cancelFade()
       if (audio) {
         audio.pause()
         audio.src = ''
