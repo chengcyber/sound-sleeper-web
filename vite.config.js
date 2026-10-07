@@ -22,7 +22,7 @@ export default defineConfig({
         // so they are served from cache on subsequent visits / offline
         runtimeCaching: [
           {
-            urlPattern: /\.mp3$/,
+            urlPattern: /\.(mp3|wav)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'audio-cache',

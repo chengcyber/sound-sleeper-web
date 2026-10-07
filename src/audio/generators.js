@@ -94,6 +94,7 @@ export function createGenerator(type) {
     case 'shh':       return createAudioFilePlayer('/audio/shh.mp3')
     case 'vacuum':    return createAudioFilePlayer('/audio/vacuum.mp3')
     case 'hairdryer': return createAudioFilePlayer('/audio/hairdryer.mp3')
+    case 'clipper':   return createAudioFilePlayer('/audio/clipper.wav')
     default:          return createAudioFilePlayer('/audio/shh.mp3')
   }
 }

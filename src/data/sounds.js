@@ -1,6 +1,6 @@
 /**
  * Sound definitions for the baby sleep white noise player.
- * type: 'shh' | 'vacuum'
+ * type: 'shh' | 'vacuum' | 'hairdryer' | 'clipper'
  */
 export const SOUNDS = [
   {
@@ -29,5 +29,14 @@ export const SOUNDS = [
     color: 'from-sky-500 to-blue-900',
     accentColor: 'bg-sky-400',
     type: 'hairdryer',
+  },
+  {
+    id: 'clipper',
+    name: 'Hair Clipper',
+    description: 'Steady electric clipper buzz',
+    emoji: '🪒',
+    color: 'from-emerald-600 to-teal-900',
+    accentColor: 'bg-emerald-400',
+    type: 'clipper',
   },
 ]
