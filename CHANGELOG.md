@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.0] - 2026-10-07
+### Added
+- Hair Clipper sound using a CC0 recording
+
+### Changed
+- Increased Hair Clipper playback loudness while keeping peaks below clipping
+
 ## [1.3.1] - 2026-05-03
 ### Changed
 - Audio fades in gradually from silence to the target volume when playback starts or resumes, instead of jumping to full volume immediately
